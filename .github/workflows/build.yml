@@ -1,1 +1,108 @@
+name: LineageOS 19.1 - Build A31
 
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "mka hedefi (ornek: bootimage, systemimage, vendorimage, bacon)"
+        required: true
+        default: "bootimage"
+      variant:
+        description: "lunch varyanti"
+        required: true
+        default: "userdebug"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      USE_CCACHE: 1
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      CCACHE_MAXSIZE: 6G
+
+    steps:
+      # Disk alani ac (checkout'tan ONCE olmali)
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 2048
+          swap-size-mb: 8192
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          remove-docker-images: "true"
+
+      - name: Checkout builder repo
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex \
+            g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick \
+            protobuf-compiler python3-protobuf lib32readline-dev lib32z1-dev \
+            libdw-dev libelf-dev lz4 libsdl1.2-dev libssl-dev libxml2 \
+            libxml2-utils lzop pngcrush rsync schedtool squashfs-tools \
+            xsltproc zip zlib1g-dev python-is-python3 openjdk-11-jdk-headless
+          mkdir -p ~/bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Git identity + private repo erisimi
+        env:
+          VENDOR_TOKEN: ${{ secrets.VENDOR_TOKEN }}
+        run: |
+          git config --global user.name "KernelMasterX"
+          git config --global user.email "actions@users.noreply.github.com"
+          git config --global url."https://x-access-token:${VENDOR_TOKEN}@github.com/KernelMasterX/".insteadOf "https://github.com/KernelMasterX/"
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ccache
+          key: ccache-a31-${{ github.run_id }}
+          restore-keys: ccache-a31-
+
+      - name: Repo init + local manifest
+        run: |
+          mkdir -p ~/lineage && cd ~/lineage
+          repo init -u https://github.com/LineageOS/android.git -b lineage-19.1 --depth=1
+          mkdir -p .repo/local_manifests
+          cp "$GITHUB_WORKSPACE/manifests/a31.xml" .repo/local_manifests/a31.xml
+
+      - name: Repo sync
+        run: |
+          cd ~/lineage
+          repo sync -c -j8 --force-sync --no-clone-bundle --no-tags
+
+      - name: Build
+        run: |
+          cd ~/lineage
+          source build/envsetup.sh
+          ccache -M "$CCACHE_MAXSIZE"
+          lunch lineage_a31-${{ github.event.inputs.variant }}
+          mka ${{ github.event.inputs.target }} -j$(nproc --all) 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Upload images
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a31-images
+          path: |
+            ~/lineage/out/target/product/a31/boot.img
+            ~/lineage/out/target/product/a31/system.img
+            ~/lineage/out/target/product/a31/vendor.img
+            ~/lineage/out/target/product/a31/odm.img
+            ~/lineage/out/target/product/a31/product.img
+            ~/lineage/out/target/product/a31/lineage-*.zip
+          if-no-files-found: warn
