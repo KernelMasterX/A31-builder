@@ -121,7 +121,7 @@ jobs:
             --optimized-fetch \
             --prune \
             --current-branch \
-            --depth=1 \
+            --detach \
             -j1
 
           echo "=== DISK AFTER SYNC ==="
@@ -142,6 +142,9 @@ jobs:
             https://github.com/KernelMasterX/android_device_samsung_a31.git \
             device/samsung/a31
 
+          echo "=== DISK AFTER DEVICE TREE ==="
+          df -h
+
       - name: Clone A31 kernel
         shell: bash
         run: |
@@ -156,6 +159,9 @@ jobs:
             --branch lineage-19.1 \
             https://github.com/KernelMasterX/android_kernel_samsung_a31.git \
             kernel/samsung/a31
+
+          echo "=== DISK AFTER KERNEL ==="
+          df -h
 
       - name: Clone A31 vendor
         shell: bash
@@ -172,6 +178,9 @@ jobs:
             https://github.com/KernelMasterX/android_vendor_samsung_a31.git \
             vendor/samsung/a31
 
+          echo "=== DISK AFTER VENDOR ==="
+          df -h
+
       - name: Verify A31 sources
         shell: bash
         run: |
@@ -180,15 +189,18 @@ jobs:
           cd "${GITHUB_WORKSPACE}/lineage"
 
           echo "=== DEVICE TREE ==="
+
           test -f device/samsung/a31/AndroidProducts.mk
           test -f device/samsung/a31/BoardConfig.mk
           test -f device/samsung/a31/device.mk
           test -f device/samsung/a31/a31.mk
 
           echo "=== KERNEL ==="
+
           test -f kernel/samsung/a31/Makefile
 
           echo "=== VENDOR ==="
+
           test -d vendor/samsung/a31
 
           echo "=== DEVICE TREE FILES ==="
@@ -197,7 +209,7 @@ jobs:
           echo "=== KERNEL FILES ==="
           ls -la kernel/samsung/a31 | head -50
 
-          echo "=== VENDOR ==="
+          echo "=== VENDOR FILES ==="
           ls -la vendor/samsung/a31
 
       - name: Configure ccache
@@ -225,10 +237,10 @@ jobs:
           lunch lineage_a31-userdebug
 
           echo "=== BUILD VARIABLES ==="
+
           get_build_var TARGET_PRODUCT
           get_build_var TARGET_BUILD_VARIANT
           get_build_var TARGET_ARCH
-          get_build_var TARGET_ARCH_VARIANT
 
       - name: Disk check before build
         shell: bash
