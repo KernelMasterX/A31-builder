@@ -1,29 +1,50 @@
-name: Build LineageOS 19.1 - Galaxy A31
+name: 🚀 LineageOS 19.1 • Galaxy A31
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
+    name: 🛠️ A31 ROM Build
     runs-on: ubuntu-22.04
+
+    env:
+      USE_CCACHE: 1
+      CCACHE_EXEC: /usr/bin/ccache
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
 
     steps:
 
       # ============================================================
-      # CHECKOUT
+      # 🌱 START
       # ============================================================
-      - name: Checkout repository
+
+      - name: 🌱 Start
+        run: |
+          echo "=========================================="
+          echo "   Galaxy A31 • LineageOS 19.1"
+          echo "=========================================="
+          echo ""
+          echo "Bugün ROM build ediyoruz. 😎"
+          echo "Target: lineage_a31-userdebug"
+          echo ""
+
+      # ============================================================
+      # 📦 CHECKOUT
+      # ============================================================
+
+      - name: 📦 Checkout builder
         uses: actions/checkout@v6
 
       # ============================================================
-      # FREE DISK SPACE
+      # 🧹 CLEAN RUNNER
       # ============================================================
-      - name: Free disk space
-        run: |
-          set -ex
 
-          echo "=== Disk before cleanup ==="
-          df -h
+      - name: 🧹 Prepare runner
+        run: |
+          set -e
+
+          echo "🧹 Gereksiz runner dosyaları temizleniyor..."
 
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
@@ -32,15 +53,22 @@ jobs:
 
           sudo apt-get clean
 
-          echo "=== Disk after cleanup ==="
+          echo ""
+          echo "💾 Kullanılabilir alan:"
           df -h
 
+          echo ""
+          echo "✅ Runner hazır."
+
       # ============================================================
-      # DEPENDENCIES
+      # 🔧 DEPENDENCIES
       # ============================================================
-      - name: Install build dependencies
+
+      - name: 🔧 Install dependencies
         run: |
-          set -ex
+          set -e
+
+          echo "🔧 Build bağımlılıkları kuruluyor..."
 
           sudo apt-get update
 
@@ -80,16 +108,18 @@ jobs:
             zip \
             zlib1g-dev
 
-          java -version
-          python3 --version
-          git --version
+          echo ""
+          echo "✅ Bağımlılıklar hazır."
 
       # ============================================================
-      # INSTALL REPO
+      # 📚 REPO
       # ============================================================
-      - name: Install repo tool
+
+      - name: 📚 Install repo
         run: |
-          set -ex
+          set -e
+
+          echo "📚 Google repo aracı hazırlanıyor..."
 
           mkdir -p "${HOME}/bin"
 
@@ -103,32 +133,42 @@ jobs:
 
           "${HOME}/bin/repo" --version
 
+          echo ""
+          echo "✅ repo hazır."
+
       # ============================================================
-      # INITIALIZE LINEAGEOS 19.1
+      # 🌳 LINEAGE INIT
       # ============================================================
-      - name: Initialize LineageOS 19.1
+
+      - name: 🌳 Initialize LineageOS 19.1
         run: |
-          set -ex
+          set -e
 
-          mkdir -p "${GITHUB_WORKSPACE}/lineage"
-          cd "${GITHUB_WORKSPACE}/lineage"
+          echo "🌳 LineageOS 19.1 source hazırlanıyor..."
 
-          "${HOME}/bin/repo" init \
+          repo init \
             -u https://github.com/LineageOS/android.git \
             -b lineage-19.1 \
             --depth=1 \
             --no-repo-verify
 
+          echo ""
+          echo "✅ LineageOS 19.1 hazır."
+
       # ============================================================
-      # SYNC SOURCE
+      # ⬇️ SOURCE SYNC
       # ============================================================
-      - name: Sync LineageOS source
+
+      - name: ⬇️ Sync Android source
         run: |
-          set -ex
+          set -e
 
-          cd "${GITHUB_WORKSPACE}/lineage"
+          echo "⬇️ Android source indiriliyor..."
+          echo "Bu bölüm uzun sürebilir."
+          echo "Sabır = ROM. 😎"
+          echo ""
 
-          "${HOME}/bin/repo" sync \
+          repo sync \
             --force-sync \
             --no-clone-bundle \
             --no-tags \
@@ -138,17 +178,22 @@ jobs:
             --detach \
             -j1
 
-          echo "=== Source sync complete ==="
+          echo ""
+          echo "=========================================="
+          echo "✅ SOURCE SYNC TAMAMLANDI"
+          echo "=========================================="
+
           df -h
 
       # ============================================================
-      # A31 DEVICE TREE
+      # 📱 A31 DEVICE TREE
       # ============================================================
-      - name: Clone A31 device tree
-        run: |
-          set -ex
 
-          cd "${GITHUB_WORKSPACE}/lineage"
+      - name: 📱 Clone A31 device tree
+        run: |
+          set -e
+
+          echo "📱 A31 device tree indiriliyor..."
 
           git clone \
             --depth=1 \
@@ -156,14 +201,17 @@ jobs:
             https://github.com/KernelMasterX/android_device_samsung_a31.git \
             device/samsung/a31
 
-      # ============================================================
-      # A31 KERNEL
-      # ============================================================
-      - name: Clone A31 kernel
-        run: |
-          set -ex
+          echo "✅ Device tree hazır."
 
-          cd "${GITHUB_WORKSPACE}/lineage"
+      # ============================================================
+      # 🧠 KERNEL
+      # ============================================================
+
+      - name: 🧠 Clone A31 kernel
+        run: |
+          set -e
+
+          echo "🧠 A31 kernel indiriliyor..."
 
           git clone \
             --depth=1 \
@@ -171,14 +219,17 @@ jobs:
             https://github.com/KernelMasterX/android_kernel_samsung_a31.git \
             kernel/samsung/a31
 
-      # ============================================================
-      # A31 VENDOR
-      # ============================================================
-      - name: Clone A31 vendor
-        run: |
-          set -ex
+          echo "✅ Kernel hazır."
 
-          cd "${GITHUB_WORKSPACE}/lineage"
+      # ============================================================
+      # 📦 VENDOR
+      # ============================================================
+
+      - name: 📦 Clone A31 vendor
+        run: |
+          set -e
+
+          echo "📦 A31 vendor indiriliyor..."
 
           git clone \
             --depth=1 \
@@ -186,241 +237,235 @@ jobs:
             https://github.com/KernelMasterX/android_vendor_samsung_a31.git \
             vendor/samsung/a31
 
+          echo "✅ Vendor hazır."
+
       # ============================================================
-      # VERIFY SOURCES
+      # 🔍 QUICK CHECK
       # ============================================================
-      - name: Verify A31 sources
+
+      - name: 🔍 Check A31 source
         run: |
-          set -ex
+          set -e
 
-          cd "${GITHUB_WORKSPACE}/lineage"
-
-          echo "=== Device tree ==="
+          echo "🔍 A31 kaynakları kontrol ediliyor..."
+          echo ""
 
           test -f device/samsung/a31/AndroidProducts.mk
           test -f device/samsung/a31/BoardConfig.mk
           test -f device/samsung/a31/device.mk
           test -f device/samsung/a31/lineage_a31.mk
-
-          echo "=== Kernel ==="
-
           test -f kernel/samsung/a31/Makefile
-
-          echo "=== Vendor ==="
-
           test -d vendor/samsung/a31
 
-          echo "=== AndroidProducts.mk ==="
+          echo "✅ AndroidProducts.mk"
+          echo "✅ BoardConfig.mk"
+          echo "✅ device.mk"
+          echo "✅ lineage_a31.mk"
+          echo "✅ Kernel"
+          echo "✅ Vendor"
+
+          echo ""
+          echo "🎉 A31 kaynak ağacı sağlam görünüyor."
+
+      # ============================================================
+      # 🧪 PRODUCT CHECK
+      # ============================================================
+
+      - name: 🧪 Validate product
+        run: |
+          set -e
+
+          echo "🧪 Product tanımı kontrol ediliyor..."
+          echo ""
+
+          echo "----- AndroidProducts.mk -----"
           cat device/samsung/a31/AndroidProducts.mk
 
-          echo "=== a31.mk ==="
-          cat device/samsung/a31/a31.mk
+          echo ""
+          echo "----- lineage_a31.mk -----"
+          cat device/samsung/a31/lineage_a31.mk
 
-          echo "=== Sources verified ==="
+          echo ""
+          echo "----- PRODUCT_NAME -----"
 
-          df -h
+          grep -n \
+            'PRODUCT_NAME[[:space:]]*:=[[:space:]]*lineage_a31' \
+            device/samsung/a31/lineage_a31.mk
+
+          echo ""
+          echo "🎯 Product: lineage_a31"
+          echo "📱 Device: a31"
+          echo ""
+          echo "✅ Product tanımı hazır."
+          echo "➡️ Build aşamasına geçebiliriz."
 
       # ============================================================
-      # CCACHE
+      # ⚡ CCACHE
       # ============================================================
-      - name: Configure ccache
+
+      - name: ⚡ Configure ccache
         run: |
-          set -ex
+          set -e
 
-          export USE_CCACHE=1
-          export CCACHE_EXEC=/usr/bin/ccache
+          echo "⚡ ccache hazırlanıyor..."
 
-          ccache -M 20G
+          mkdir -p "${CCACHE_DIR}"
+
+          ccache --set-config=max_size=20G
+          ccache --set-config=compression=true
 
           ccache -z
+
+          echo ""
+          echo "✅ ccache hazır."
           ccache -s
 
       # ============================================================
-      # PREPARE BUILD ENVIRONMENT
-      #
-      # IMPORTANT:
-      # NO set -u
+      # 🏗️ BUILD ENVIRONMENT
       # ============================================================
-      - name: Prepare build environment
-        shell: bash
+
+      - name: 🏗️ Prepare build environment
         run: |
-          set -ex
+          set -e
 
-          cd "${GITHUB_WORKSPACE}/lineage"
-
-          echo "=== Checking build system ==="
-
-          test -f build/envsetup.sh
-          test -f build/make/core/envsetup.mk
-
-          echo "=== Source envsetup ==="
+          echo "🏗️ Android build environment hazırlanıyor..."
 
           source build/envsetup.sh
 
-          echo "=== Lunch A31 ==="
+          echo ""
+          echo "🎯 Lunch: lineage_a31-userdebug"
+          echo ""
 
-          lunch a31-userdebug
+          lunch lineage_a31-userdebug
 
-          echo "=== Product information ==="
+          echo ""
+          echo "=========================================="
+          echo "✅ BUILD ENVIRONMENT HAZIR"
+          echo "=========================================="
 
-          get_build_var TARGET_PRODUCT
-          get_build_var TARGET_DEVICE
-          get_build_var TARGET_BUILD_VARIANT
+      # ============================================================
+      # 🚀 BUILD
+      # ============================================================
 
-          echo "=== Build environment ready ==="
+      - name: 🚀 Build ROM
+        run: |
+          set -o pipefail
 
+          mkdir -p build_logs
+
+          echo "=========================================="
+          echo "🚀 A31 ROM BUILD BAŞLIYOR"
+          echo "=========================================="
+          echo ""
+
+          echo "📱 Device : Galaxy A31"
+          echo "🎯 Target : LineageOS 19.1"
+          echo "🧩 Product: lineage_a31"
+          echo ""
+
+          echo "💾 Build öncesi disk:"
           df -h
 
-      # ============================================================
-      # BUILD
-      # ============================================================
-      - name: Build LineageOS 19.1
-        shell: bash
-        run: |
-          set -ex
-
-          cd "${GITHUB_WORKSPACE}/lineage"
+          echo ""
+          echo "🔥 mka bacon başlıyor..."
+          echo ""
 
           source build/envsetup.sh
+          lunch lineage_a31-userdebug
 
-          lunch a31-userdebug
-
-          echo "=== Disk before build ==="
-          df -h
-
-          echo "=== Starting mka bacon ==="
-
-          mka bacon
-
-          echo "=== BUILD FINISHED ==="
-
-          echo "=== Disk after build ==="
-          df -h
-
-          echo "=== Ccache ==="
-          ccache -s
+          mka bacon 2>&1 | tee build_logs/build.log
 
       # ============================================================
-      # INSPECT OUTPUT
+      # 🎉 SUCCESS
       # ============================================================
-      - name: Inspect build output
+
+      - name: 🎉 Build success
         if: success()
         run: |
-          set -ex
+          echo ""
+          echo "=========================================="
+          echo "🎉🎉🎉 BUILD BAŞARILI 🎉🎉🎉"
+          echo "=========================================="
+          echo ""
 
-          cd "${GITHUB_WORKSPACE}/lineage"
-
-          echo "=== A31 output ==="
-
-          du -sh out || true
-
-          ls -lah out/target/product/a31 || true
-
-          echo "=== ROM ZIP ==="
+          echo "ROM çıktıları:"
+          echo ""
 
           find out/target/product/a31 \
             -maxdepth 1 \
             -type f \
-            -name "*.zip" \
-            -exec ls -lh {} \; || true
+            \( \
+              -name "*.zip" \
+              -o -name "*.img" \
+              -o -name "*.img.xz" \
+            \) \
+            -print
 
-          echo "=== Images ==="
-
-          find out/target/product/a31 \
-            -maxdepth 1 \
-            -type f \
-            -name "*.img" \
-            -exec ls -lh {} \; || true
-
+          echo ""
+          echo "💾 Son disk durumu:"
           df -h
 
-      # ============================================================
-      # VALIDATE ROM
-      # ============================================================
-      - name: Validate ROM package
-        if: success()
-        run: |
-          set -ex
+          echo ""
+          echo "⚡ ccache:"
+          ccache -s
 
-          cd "${GITHUB_WORKSPACE}/lineage"
-
-          ROM_ZIP=$(find out/target/product/a31 \
-            -maxdepth 1 \
-            -type f \
-            -name "*.zip" \
-            | head -n 1)
-
-          test -n "${ROM_ZIP}"
-
-          echo "ROM:"
-          echo "${ROM_ZIP}"
-
-          ls -lh "${ROM_ZIP}"
-
-          echo "=== Testing ZIP ==="
-
-          unzip -t "${ROM_ZIP}" >/dev/null
-
-          echo "=== ZIP OK ==="
+          echo ""
+          echo "ANDROID ROM YAPILDI. 🔥"
 
       # ============================================================
-      # UPLOAD ROM
+      # 📤 ROM ARTIFACT
       # ============================================================
-      - name: Upload ROM
+
+      - name: 📤 Upload ROM
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: LineageOS-19.1-A31
           path: |
-            lineage/out/target/product/a31/*.zip
-            lineage/out/target/product/a31/*.img
+            out/target/product/a31/*.zip
+            out/target/product/a31/*.img
+            out/target/product/a31/*.img.xz
           if-no-files-found: error
-          retention-days: 7
+          compression-level: 0
 
       # ============================================================
-      # UPLOAD LOGS
+      # 🧾 FAILURE LOG
       # ============================================================
-      - name: Upload build logs
+
+      - name: 🧾 Save failure logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: A31-build-logs
+          name: A31-Build-Logs
           path: |
-            lineage/out/soong.log
-            lineage/out/verbose.log
-            lineage/out/build_trace.txt
-            lineage/out/error.log
+            build_logs/
+            out/soong.log
+            out/error.log
           if-no-files-found: warn
-          retention-days: 7
 
       # ============================================================
-      # FINAL REPORT
+      # 💾 FINAL STATUS
       # ============================================================
-      - name: Build summary
+
+      - name: 💾 Final status
         if: always()
         run: |
-          echo "========================================"
-          echo " Galaxy A31 - LineageOS 19.1"
-          echo " Product: a31"
-          echo "========================================"
+          echo ""
+          echo "=========================================="
+          echo "📊 FINAL STATUS"
+          echo "=========================================="
 
-          if [ -d "${GITHUB_WORKSPACE}/lineage" ]; then
-            cd "${GITHUB_WORKSPACE}/lineage"
+          echo ""
+          echo "Disk:"
+          df -h
 
-            echo ""
-            echo "=== Disk ==="
-            df -h
+          echo ""
+          echo "ccache:"
+          ccache -s || true
 
-            echo ""
-            echo "=== Ccache ==="
-            ccache -s || true
+          echo ""
+          echo "Build workspace:"
+          du -sh out 2>/dev/null || true
 
-            echo ""
-            echo "=== Output ==="
-
-            if [ -d out/target/product/a31 ]; then
-              ls -lah out/target/product/a31 || true
-            else
-              echo "No A31 output directory."
-            fi
-          fi
+          echo ""
+          echo "🏁 Workflow tamamlandı."
