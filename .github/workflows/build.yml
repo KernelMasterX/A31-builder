@@ -200,7 +200,7 @@ jobs:
           test -f device/samsung/a31/AndroidProducts.mk
           test -f device/samsung/a31/BoardConfig.mk
           test -f device/samsung/a31/device.mk
-          test -f device/samsung/a31/a31.mk
+          test -f device/samsung/a31/lineage_a31.mk
 
           echo "=== Kernel ==="
 
