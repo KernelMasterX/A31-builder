@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     env:
       ROM_DIR: ${{ github.workspace }}/rom
@@ -22,7 +22,7 @@ jobs:
 
       - name: Disk check - checkout
         run: |
-          echo "===== DISK ====="
+          echo "===== DISK AFTER CHECKOUT ====="
           df -h
 
       # ============================================================
@@ -30,39 +30,49 @@ jobs:
       # ============================================================
       - name: Free runner disk space
         run: |
-          echo "===== CLEANING RUNNER ====="
+          echo "===== INITIAL DISK ====="
+          df -h
 
+          echo "===== REMOVE ANDROID SDK ====="
           sudo rm -rf /usr/local/lib/android || true
           df -h
 
+          echo "===== REMOVE DOTNET ====="
           sudo rm -rf /usr/share/dotnet || true
           df -h
 
+          echo "===== REMOVE GHC ====="
           sudo rm -rf /opt/ghc || true
           df -h
 
+          echo "===== REMOVE HOSTED TOOLCACHE ====="
           sudo rm -rf /opt/hostedtoolcache || true
           df -h
 
+          echo "===== REMOVE POWERSHELL ====="
           sudo rm -rf /usr/local/share/powershell || true
           df -h
 
+          echo "===== REMOVE CHROMIUM ====="
           sudo rm -rf /usr/local/share/chromium || true
           df -h
 
+          echo "===== REMOVE NODE MODULES ====="
           sudo rm -rf /usr/local/lib/node_modules || true
           df -h
 
+          echo "===== DOCKER CLEANUP ====="
           sudo docker system prune -af || true
           df -h
 
+          echo "===== APT CLEANUP ====="
           sudo apt-get clean || true
           df -h
 
       # ============================================================
-      # 3. DEPENDENCIES
+      # 3. INSTALL DEPENDENCIES
       # ============================================================
-      - name: Install dependencies
+      - name: Install LineageOS 19.1 dependencies
         run: |
           sudo apt-get update
 
@@ -100,10 +110,26 @@ jobs:
             zip \
             zlib1g-dev
 
+          echo "===== DISK AFTER DEPENDENCIES ====="
           df -h
 
       # ============================================================
-      # 4. REPO
+      # 4. JAVA
+      # ============================================================
+      - name: Configure Java 11
+        run: |
+          echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> "$GITHUB_ENV"
+          echo "/usr/lib/jvm/java-11-openjdk-amd64/bin" >> "$GITHUB_PATH"
+
+          export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+          java -version
+
+          echo "===== DISK ====="
+          df -h
+
+      # ============================================================
+      # 5. INSTALL REPO
       # ============================================================
       - name: Install repo tool
         run: |
@@ -119,10 +145,11 @@ jobs:
 
           "$HOME/bin/repo" --version
 
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 5. INIT LINEAGEOS 19.1
+      # 6. INIT LINEAGEOS 19.1
       # ============================================================
       - name: Initialize LineageOS 19.1
         run: |
@@ -135,14 +162,21 @@ jobs:
             -b lineage-19.1 \
             --git-lfs
 
+          echo "===== LINEAGE BRANCH ====="
+          git -C . rev-parse --abbrev-ref HEAD || true
+
+          echo "===== DISK AFTER REPO INIT ====="
           df -h
 
       # ============================================================
-      # 6. SYNC LINEAGEOS 19.1
+      # 7. SYNC SOURCE
       # ============================================================
-      - name: Sync LineageOS 19.1
+      - name: Sync LineageOS 19.1 source
         working-directory: ${{ env.ROM_DIR }}
         run: |
+          echo "===== DISK BEFORE SYNC ====="
+          df -h
+
           repo sync \
             -c \
             --force-sync \
@@ -152,14 +186,17 @@ jobs:
             --prune \
             -j2
 
+          echo "===== DISK AFTER SYNC ====="
           df -h
 
       # ============================================================
-      # 7. A31 DEVICE TREE
+      # 8. A31 DEVICE TREE
       # ============================================================
       - name: Clone A31 device tree
         working-directory: ${{ env.ROM_DIR }}
         run: |
+          mkdir -p device/samsung
+
           rm -rf device/samsung/a31
 
           git clone \
@@ -168,17 +205,20 @@ jobs:
             https://github.com/Galaxy-MT6768/android_device_samsung_a31x.git \
             device/samsung/a31
 
-          echo "===== DEVICE TREE ====="
-          ls -la device/samsung/a31
+          echo "===== A31 DEVICE TREE ====="
+          ls -lah device/samsung/a31
 
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 8. MT6768 COMMON
+      # 9. MT6768 COMMON
       # ============================================================
       - name: Clone MT6768 common tree
         working-directory: ${{ env.ROM_DIR }}
         run: |
+          mkdir -p device/samsung
+
           rm -rf device/samsung/mt6768-common
 
           git clone \
@@ -187,17 +227,20 @@ jobs:
             https://github.com/Galaxy-MT6768/android_device_samsung_mt6768-common.git \
             device/samsung/mt6768-common
 
-          echo "===== COMMON TREE ====="
-          ls -la device/samsung/mt6768-common
+          echo "===== MT6768 COMMON ====="
+          ls -lah device/samsung/mt6768-common
 
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 9. KERNEL
+      # 10. KERNEL 19.1
       # ============================================================
       - name: Clone MT6768 kernel
         working-directory: ${{ env.ROM_DIR }}
         run: |
+          mkdir -p kernel/samsung
+
           rm -rf kernel/samsung/mt6768
 
           git clone \
@@ -207,67 +250,88 @@ jobs:
             kernel/samsung/mt6768
 
           echo "===== KERNEL ====="
-          ls -la kernel/samsung/mt6768
+          ls -lah kernel/samsung/mt6768
 
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 10. CHECK DEFCONFIG
+      # 11. CHECK DEFCONFIG
       # ============================================================
       - name: Check kernel defconfig
         working-directory: ${{ env.ROM_DIR }}
         run: |
-          echo "===== KERNEL DEFCONFIGS ====="
+          echo "===== AVAILABLE MT6768 DEFCONFIGS ====="
 
           find kernel/samsung/mt6768/arch/arm64/configs \
             -maxdepth 1 \
             -type f \
+            -printf "%f\n" \
             | sort \
             | grep -Ei 'a31|a31x|mt6768' || true
 
+          echo
+          echo "===== ALL DEFCONFIGS ====="
+
+          find kernel/samsung/mt6768/arch/arm64/configs \
+            -maxdepth 1 \
+            -type f \
+            -printf "%f\n" \
+            | sort \
+            | head -100
+
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 11. CHECK BOARD CONFIG
+      # 12. CHECK BOARD CONFIG
       # ============================================================
-      - name: Check BoardConfig
+      - name: Inspect BoardConfig
         working-directory: ${{ env.ROM_DIR }}
         run: |
-          echo "===== BOARD CONFIG ====="
+          echo "===== BoardConfig.mk ====="
 
-          sed -n '1,320p' \
-            device/samsung/a31/BoardConfig.mk || true
+          if [ -f device/samsung/a31/BoardConfig.mk ]; then
+            sed -n '1,350p' device/samsung/a31/BoardConfig.mk
+          else
+            echo "ERROR: BoardConfig.mk not found!"
+            exit 1
+          fi
 
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 12. CHECK VENDOR
+      # 13. CHECK VENDOR
       # ============================================================
-      - name: Check vendor
+      - name: Check vendor tree
         working-directory: ${{ env.ROM_DIR }}
         run: |
-          echo "===== VENDOR ====="
+          echo "===== VENDOR CHECK ====="
 
-          if [ -d "vendor/samsung/a31" ]; then
+          if [ -d vendor/samsung/a31 ]; then
             echo "vendor/samsung/a31 FOUND"
             du -sh vendor/samsung/a31
           else
             echo "WARNING:"
-            echo "vendor/samsung/a31 NOT FOUND"
+            echo "vendor/samsung/a31 NOT FOUND."
             echo
-            echo "The ROM build needs the A31 proprietary/vendor files."
+            echo "The build may fail unless the device tree"
+            echo "provides another proprietary-files/vendor mechanism."
           fi
 
+          echo
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 13. CCACHE
+      # 14. CCACHE
       # ============================================================
       - name: Configure ccache
         run: |
           mkdir -p "$CCACHE_DIR"
 
-          ccache -M 10G
+          ccache -M 4G
 
           echo "USE_CCACHE=1" >> "$GITHUB_ENV"
           echo "CCACHE_EXEC=$(command -v ccache)" >> "$GITHUB_ENV"
@@ -275,58 +339,56 @@ jobs:
 
           ccache -s
 
-          df -h
-
-      # ============================================================
-      # 14. JAVA 11
-      # ============================================================
-      - name: Configure Java 11
-        run: |
-          echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" \
-            >> "$GITHUB_ENV"
-
-          echo "/usr/lib/jvm/java-11-openjdk-amd64/bin" \
-            >> "$GITHUB_PATH"
-
-          java -version
-
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
       # 15. BUILD ENVIRONMENT
       # ============================================================
-      - name: Setup build environment
+      - name: Setup Android build environment
         working-directory: ${{ env.ROM_DIR }}
         run: |
           source build/envsetup.sh
 
           lunch lineage_a31-userdebug
 
-          echo "===== BUILD TARGET ====="
-          echo "$TARGET_PRODUCT"
-          echo "$TARGET_DEVICE"
-          echo "$TARGET_BUILD_VARIANT"
+          echo
+          echo "===== TARGET ====="
+          echo "TARGET_PRODUCT=$TARGET_PRODUCT"
+          echo "TARGET_DEVICE=$TARGET_DEVICE"
+          echo "TARGET_BUILD_VARIANT=$TARGET_BUILD_VARIANT"
 
+          echo
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 16. VERIFY PRODUCT
+      # 16. VERIFY TARGET
       # ============================================================
-      - name: Verify product configuration
+      - name: Verify A31 product
         working-directory: ${{ env.ROM_DIR }}
         run: |
           source build/envsetup.sh
 
           lunch lineage_a31-userdebug
 
+          echo "===== TARGET PRODUCT ====="
           get_build_var TARGET_PRODUCT
-          get_build_var TARGET_DEVICE
-          get_build_var TARGET_BUILD_VARIANT
 
+          echo "===== TARGET DEVICE ====="
+          get_build_var TARGET_DEVICE
+
+          echo "===== PLATFORM ====="
+          get_build_var TARGET_BOARD_PLATFORM
+
+          echo "===== RELEASE ====="
+          get_build_var PLATFORM_VERSION
+
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 17. BUILD KERNEL / BOOT
+      # 17. BUILD BOOT
       # ============================================================
       - name: Build boot image
         working-directory: ${{ env.ROM_DIR }}
@@ -335,45 +397,60 @@ jobs:
 
           lunch lineage_a31-userdebug
 
+          echo "===== BUILDING BOOT IMAGE ====="
+
           mka bootimage -j2
 
+          echo
           echo "===== BOOT IMAGE ====="
 
-          ls -lh \
-            out/target/product/a31/boot.img
+          if [ -f out/target/product/a31/boot.img ]; then
+            ls -lh out/target/product/a31/boot.img
+          else
+            echo "ERROR: boot.img was not generated."
+            exit 1
+          fi
 
+          echo
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 18. BUILD FULL ROM
+      # 18. BUILD FULL LINEAGEOS 19.1
       # ============================================================
-      - name: Build LineageOS 19.1
+      - name: Build LineageOS 19.1 ROM
         working-directory: ${{ env.ROM_DIR }}
         run: |
           source build/envsetup.sh
 
           lunch lineage_a31-userdebug
 
-          echo "========================================"
-          echo " LINEAGEOS 19.1 BUILD"
-          echo " ANDROID 12L"
-          echo " GALAXY A31"
-          echo "========================================"
+          echo "=============================================="
+          echo "        LINEAGEOS 19.1 BUILD"
+          echo "        ANDROID 12L"
+          echo "        GALAXY A31 / SM-A315F"
+          echo "        MT6768"
+          echo "=============================================="
+
+          echo
+          echo "===== DISK BEFORE BUILD ====="
+          df -h
 
           mka bacon -j2
 
+          echo
+          echo "===== DISK AFTER BUILD ====="
           df -h
 
       # ============================================================
-      # 19. FIND ROM ZIP
+      # 19. LOCATE FINAL FLASHABLE ZIP
       # ============================================================
-      - name: Find flashable ROM
+      - name: Locate final flashable ZIP
         working-directory: ${{ env.ROM_DIR }}
         run: |
           mkdir -p "$RELEASE_DIR"
 
-          echo "===== BUILD OUTPUT ====="
-
+          echo "===== PRODUCT OUTPUT ====="
           ls -lah out/target/product/a31/
 
           echo
@@ -393,22 +470,29 @@ jobs:
             | head -1)"
 
           if [ -z "$ROM_ZIP" ]; then
-            echo "ERROR: No ROM ZIP found."
+            echo
+            echo "ERROR: NO ROM ZIP WAS GENERATED."
             exit 1
           fi
 
           echo
-          echo "FOUND ROM:"
+          echo "===== FOUND ROM ====="
           echo "$ROM_ZIP"
 
           cp -v "$ROM_ZIP" "$RELEASE_DIR/"
 
+          echo
+          echo "===== RELEASE ====="
+          ls -lh "$RELEASE_DIR"
+
+          echo
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
       # 20. TEST ZIP
       # ============================================================
-      - name: Test ROM ZIP
+      - name: Test flashable ZIP
         run: |
           ZIP_FILE="$(find "$RELEASE_DIR" \
             -maxdepth 1 \
@@ -417,15 +501,15 @@ jobs:
             | head -1)"
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: ROM ZIP missing."
+            echo "ERROR: ROM ZIP NOT FOUND."
             exit 1
           fi
 
-          echo "===== ROM ====="
+          echo "===== ROM FILE ====="
           ls -lh "$ZIP_FILE"
 
           echo
-          echo "===== ZIP TEST ====="
+          echo "===== ZIP INTEGRITY TEST ====="
 
           unzip -t "$ZIP_FILE"
 
@@ -434,12 +518,14 @@ jobs:
 
           unzip -l "$ZIP_FILE" | head -100
 
+          echo
+          echo "===== DISK ====="
           df -h
 
       # ============================================================
-      # 21. UPLOAD FLASHABLE ZIP
+      # 21. UPLOAD FLASHABLE ROM
       # ============================================================
-      - name: Upload flashable ROM
+      - name: Upload LineageOS 19.1 flashable ROM
         uses: actions/upload-artifact@v4
         with:
           name: Galaxy-A31-LineageOS-19.1-FLASHABLE
@@ -448,9 +534,9 @@ jobs:
           compression-level: 0
 
       # ============================================================
-      # 22. UPLOAD BUILD LOGS
+      # 22. BUILD LOGS
       # ============================================================
-      - name: Upload build information
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -461,27 +547,27 @@ jobs:
           if-no-files-found: ignore
 
       # ============================================================
-      # 23. FINAL DISK CHECK
+      # 23. FINAL DISK REPORT
       # ============================================================
       - name: Final disk report
         if: always()
         run: |
-          echo "========================================"
-          echo " FINAL DISK STATUS"
-          echo "========================================"
+          echo "=============================================="
+          echo "              FINAL DISK STATUS"
+          echo "=============================================="
 
           df -h
 
           echo
-          echo "===== OUT ====="
+          echo "===== OUT SIZE ====="
           du -sh "$ROM_DIR/out" 2>/dev/null || true
 
           echo
-          echo "===== CCACHE ====="
+          echo "===== CCACHE SIZE ====="
           du -sh "$CCACHE_DIR" 2>/dev/null || true
 
           echo
-          echo "===== RELEASE ====="
+          echo "===== RELEASE SIZE ====="
           du -sh "$RELEASE_DIR" 2>/dev/null || true
 
           echo
