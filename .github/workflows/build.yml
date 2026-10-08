@@ -7,6 +7,7 @@ jobs:
   build:
     name: 🛠️ A31 ROM Build
     runs-on: ubuntu-22.04
+    timeout-minutes: 360
 
     env:
       USE_CCACHE: 1
@@ -25,8 +26,8 @@ jobs:
           echo "   Galaxy A31 • LineageOS 19.1"
           echo "=========================================="
           echo ""
-          echo "Bugün ROM build ediyoruz. 😎"
           echo "Target: lineage_a31-userdebug"
+          echo "Product file: a31.mk"
           echo ""
 
       # ============================================================
@@ -44,7 +45,7 @@ jobs:
         run: |
           set -e
 
-          echo "🧹 Gereksiz runner dosyaları temizleniyor..."
+          echo "🧹 Runner temizleniyor..."
 
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
@@ -54,11 +55,8 @@ jobs:
           sudo apt-get clean
 
           echo ""
-          echo "💾 Kullanılabilir alan:"
+          echo "💾 Disk:"
           df -h
-
-          echo ""
-          echo "✅ Runner hazır."
 
       # ============================================================
       # 🔧 DEPENDENCIES
@@ -67,8 +65,6 @@ jobs:
       - name: 🔧 Install dependencies
         run: |
           set -e
-
-          echo "🔧 Build bağımlılıkları kuruluyor..."
 
           sudo apt-get update
 
@@ -108,8 +104,7 @@ jobs:
             zip \
             zlib1g-dev
 
-          echo ""
-          echo "✅ Bağımlılıklar hazır."
+          echo "✅ Dependencies hazır."
 
       # ============================================================
       # 📚 REPO
@@ -118,8 +113,6 @@ jobs:
       - name: 📚 Install repo
         run: |
           set -e
-
-          echo "📚 Google repo aracı hazırlanıyor..."
 
           mkdir -p "${HOME}/bin"
 
@@ -133,9 +126,6 @@ jobs:
 
           "${HOME}/bin/repo" --version
 
-          echo ""
-          echo "✅ repo hazır."
-
       # ============================================================
       # 🌳 LINEAGE INIT
       # ============================================================
@@ -144,16 +134,13 @@ jobs:
         run: |
           set -e
 
-          echo "🌳 LineageOS 19.1 source hazırlanıyor..."
-
           repo init \
             -u https://github.com/LineageOS/android.git \
             -b lineage-19.1 \
             --depth=1 \
             --no-repo-verify
 
-          echo ""
-          echo "✅ LineageOS 19.1 hazır."
+          echo "✅ LineageOS 19.1 initialized."
 
       # ============================================================
       # ⬇️ SOURCE SYNC
@@ -162,11 +149,6 @@ jobs:
       - name: ⬇️ Sync Android source
         run: |
           set -e
-
-          echo "⬇️ Android source indiriliyor..."
-          echo "Bu bölüm uzun sürebilir."
-          echo "Sabır = ROM. 😎"
-          echo ""
 
           repo sync \
             --force-sync \
@@ -193,8 +175,6 @@ jobs:
         run: |
           set -e
 
-          echo "📱 A31 device tree indiriliyor..."
-
           git clone \
             --depth=1 \
             --branch main \
@@ -210,8 +190,6 @@ jobs:
       - name: 🧠 Clone A31 kernel
         run: |
           set -e
-
-          echo "🧠 A31 kernel indiriliyor..."
 
           git clone \
             --depth=1 \
@@ -229,8 +207,6 @@ jobs:
         run: |
           set -e
 
-          echo "📦 A31 vendor indiriliyor..."
-
           git clone \
             --depth=1 \
             --branch lineage-19.1 \
@@ -240,32 +216,36 @@ jobs:
           echo "✅ Vendor hazır."
 
       # ============================================================
-      # 🔍 QUICK CHECK
+      # 🔍 CHECK FILES
       # ============================================================
 
       - name: 🔍 Check A31 source
         run: |
           set -e
 
-          echo "🔍 A31 kaynakları kontrol ediliyor..."
-          echo ""
-
           test -f device/samsung/a31/AndroidProducts.mk
           test -f device/samsung/a31/BoardConfig.mk
           test -f device/samsung/a31/device.mk
-          test -f device/samsung/a31/lineage_a31.mk
+          test -f device/samsung/a31/a31.mk
+
           test -f kernel/samsung/a31/Makefile
           test -d vendor/samsung/a31
 
-          echo "✅ AndroidProducts.mk"
-          echo "✅ BoardConfig.mk"
-          echo "✅ device.mk"
-          echo "✅ lineage_a31.mk"
-          echo "✅ Kernel"
-          echo "✅ Vendor"
+          echo "=========================================="
+          echo "✅ A31 SOURCE CHECK OK"
+          echo "=========================================="
 
           echo ""
-          echo "🎉 A31 kaynak ağacı sağlam görünüyor."
+          echo "Device:"
+          ls -la device/samsung/a31
+
+          echo ""
+          echo "Kernel:"
+          ls -la kernel/samsung/a31 | head
+
+          echo ""
+          echo "Vendor:"
+          ls -la vendor/samsung/a31 | head
 
       # ============================================================
       # 🧪 PRODUCT CHECK
@@ -275,49 +255,119 @@ jobs:
         run: |
           set -e
 
-          echo "🧪 Product tanımı kontrol ediliyor..."
-          echo ""
+          echo "=========================================="
+          echo "🧪 PRODUCT CHECK"
+          echo "=========================================="
 
+          echo ""
           echo "----- AndroidProducts.mk -----"
           cat device/samsung/a31/AndroidProducts.mk
 
           echo ""
-          echo "----- lineage_a31.mk -----"
-          cat device/samsung/a31/lineage_a31.mk
+          echo "----- a31.mk -----"
+          cat device/samsung/a31/a31.mk
 
           echo ""
           echo "----- PRODUCT_NAME -----"
 
           grep -n \
             'PRODUCT_NAME[[:space:]]*:=[[:space:]]*lineage_a31' \
-            device/samsung/a31/lineage_a31.mk
+            device/samsung/a31/a31.mk
 
           echo ""
-          echo "🎯 Product: lineage_a31"
-          echo "📱 Device: a31"
+          echo "----- PRODUCT_DEVICE -----"
+
+          grep -n \
+            'PRODUCT_DEVICE[[:space:]]*:=[[:space:]]*a31' \
+            device/samsung/a31/a31.mk
+
           echo ""
-          echo "✅ Product tanımı hazır."
-          echo "➡️ Build aşamasına geçebiliriz."
+          echo "✅ Product: lineage_a31"
+          echo "✅ Device: a31"
+          echo "✅ File: a31.mk"
 
       # ============================================================
-      # ⚡ CCACHE
+      # 🛠️ FIX PRODUCT_SHIPPING_API_LEVEL
+      # ============================================================
+
+      - name: 🛠️ Fix PRODUCT_SHIPPING_API_LEVEL
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "🛠️ PRODUCT_SHIPPING_API_LEVEL CHECK"
+          echo "=========================================="
+
+          echo ""
+          echo "Mevcut atamalar:"
+          grep -RIn \
+            --exclude-dir=.git \
+            --include="*.mk" \
+            --include="*.make" \
+            "PRODUCT_SHIPPING_API_LEVEL[[:space:]]*:=" \
+            device/samsung/a31 \
+            vendor/samsung/a31 \
+            || true
+
+          echo ""
+          echo "🔧 Device/vendor içindeki doğrudan := atamaları ?= yapılıyor..."
+
+          find device/samsung/a31 vendor/samsung/a31 \
+            -type f \
+            \( -name "*.mk" -o -name "*.make" \) \
+            -print0 |
+          while IFS= read -r -d '' file; do
+            sed -i -E \
+              's/^([[:space:]]*PRODUCT_SHIPPING_API_LEVEL)[[:space:]]*:=/\1 ?=/' \
+              "$file"
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "🔎 DÜZELTME SONRASI"
+          echo "=========================================="
+
+          grep -RIn \
+            --exclude-dir=.git \
+            --include="*.mk" \
+            --include="*.make" \
+            "PRODUCT_SHIPPING_API_LEVEL" \
+            device/samsung/a31 \
+            vendor/samsung/a31 \
+            || true
+
+          echo ""
+          echo "✅ Device/vendor PRODUCT_SHIPPING_API_LEVEL kontrolü tamamlandı."
+
+      # ============================================================
+      # ⚡ RESTORE CCACHE
+      # ============================================================
+
+      - name: ⚡ Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: a31-lineage-19.1-ccache-${{ runner.os }}-${{ github.ref_name }}
+          restore-keys: |
+            a31-lineage-19.1-ccache-${{ runner.os }}-
+
+      # ============================================================
+      # ⚡ CONFIGURE CCACHE
       # ============================================================
 
       - name: ⚡ Configure ccache
         run: |
           set -e
 
-          echo "⚡ ccache hazırlanıyor..."
-
           mkdir -p "${CCACHE_DIR}"
 
           ccache --set-config=max_size=20G
           ccache --set-config=compression=true
 
-          ccache -z
+          echo "=========================================="
+          echo "⚡ CCACHE"
+          echo "=========================================="
 
-          echo ""
-          echo "✅ ccache hazır."
           ccache -s
 
       # ============================================================
@@ -328,12 +378,10 @@ jobs:
         run: |
           set -e
 
-          echo "🏗️ Android build environment hazırlanıyor..."
-
           source build/envsetup.sh
 
           echo ""
-          echo "🎯 Lunch: lineage_a31-userdebug"
+          echo "🎯 lunch lineage_a31-userdebug"
           echo ""
 
           lunch lineage_a31-userdebug
@@ -356,13 +404,14 @@ jobs:
           echo "=========================================="
           echo "🚀 A31 ROM BUILD BAŞLIYOR"
           echo "=========================================="
-          echo ""
 
-          echo "📱 Device : Galaxy A31"
-          echo "🎯 Target : LineageOS 19.1"
-          echo "🧩 Product: lineage_a31"
           echo ""
+          echo "Device  : Galaxy A31"
+          echo "Target  : LineageOS 19.1"
+          echo "Product : lineage_a31"
+          echo "File    : a31.mk"
 
+          echo ""
           echo "💾 Build öncesi disk:"
           df -h
 
@@ -386,10 +435,9 @@ jobs:
           echo "=========================================="
           echo "🎉🎉🎉 BUILD BAŞARILI 🎉🎉🎉"
           echo "=========================================="
-          echo ""
 
-          echo "ROM çıktıları:"
           echo ""
+          echo "ROM çıktıları:"
 
           find out/target/product/a31 \
             -maxdepth 1 \
@@ -402,18 +450,15 @@ jobs:
             -print
 
           echo ""
-          echo "💾 Son disk durumu:"
+          echo "💾 Son disk:"
           df -h
 
           echo ""
           echo "⚡ ccache:"
           ccache -s
 
-          echo ""
-          echo "ANDROID ROM YAPILDI. 🔥"
-
       # ============================================================
-      # 📤 ROM ARTIFACT
+      # 📤 UPLOAD ROM
       # ============================================================
 
       - name: 📤 Upload ROM
