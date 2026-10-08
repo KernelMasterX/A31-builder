@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+
       # ============================================================
       # CHECKOUT
       # ============================================================
@@ -103,7 +104,7 @@ jobs:
           "${HOME}/bin/repo" --version
 
       # ============================================================
-      # INIT LINEAGEOS 19.1
+      # INITIALIZE LINEAGEOS 19.1
       # ============================================================
       - name: Initialize LineageOS 19.1
         run: |
@@ -120,8 +121,6 @@ jobs:
 
       # ============================================================
       # SYNC SOURCE
-      # IMPORTANT:
-      # repo sync DOES NOT use --depth=1
       # ============================================================
       - name: Sync LineageOS source
         run: |
@@ -143,7 +142,7 @@ jobs:
           df -h
 
       # ============================================================
-      # CLONE GALAXY A31 DEVICE TREE
+      # A31 DEVICE TREE
       # ============================================================
       - name: Clone A31 device tree
         run: |
@@ -158,7 +157,7 @@ jobs:
             device/samsung/a31
 
       # ============================================================
-      # CLONE GALAXY A31 KERNEL
+      # A31 KERNEL
       # ============================================================
       - name: Clone A31 kernel
         run: |
@@ -173,7 +172,7 @@ jobs:
             kernel/samsung/a31
 
       # ============================================================
-      # CLONE GALAXY A31 VENDOR
+      # A31 VENDOR
       # ============================================================
       - name: Clone A31 vendor
         run: |
@@ -188,7 +187,7 @@ jobs:
             vendor/samsung/a31
 
       # ============================================================
-      # VERIFY DEVICE TREE
+      # VERIFY SOURCES
       # ============================================================
       - name: Verify A31 sources
         run: |
@@ -197,29 +196,28 @@ jobs:
           cd "${GITHUB_WORKSPACE}/lineage"
 
           echo "=== Device tree ==="
+
           test -f device/samsung/a31/AndroidProducts.mk
           test -f device/samsung/a31/BoardConfig.mk
           test -f device/samsung/a31/device.mk
           test -f device/samsung/a31/a31.mk
 
           echo "=== Kernel ==="
+
           test -f kernel/samsung/a31/Makefile
 
           echo "=== Vendor ==="
+
           test -d vendor/samsung/a31
+
+          echo "=== AndroidProducts.mk ==="
+          cat device/samsung/a31/AndroidProducts.mk
+
+          echo "=== a31.mk ==="
+          cat device/samsung/a31/a31.mk
 
           echo "=== Sources verified ==="
 
-          echo "=== Device files ==="
-          ls -la device/samsung/a31
-
-          echo "=== Kernel files ==="
-          ls -la kernel/samsung/a31 | head -30
-
-          echo "=== Vendor ==="
-          ls -la vendor/samsung/a31 | head -30
-
-          echo "=== Disk ==="
           df -h
 
       # ============================================================
@@ -241,9 +239,7 @@ jobs:
       # PREPARE BUILD ENVIRONMENT
       #
       # IMPORTANT:
-      # DO NOT USE "set -u" HERE.
-      # LineageOS envsetup.sh uses unset variables such as TOP
-      # and ZSH_VERSION during normal initialization.
+      # NO set -u
       # ============================================================
       - name: Prepare build environment
         shell: bash
@@ -252,31 +248,31 @@ jobs:
 
           cd "${GITHUB_WORKSPACE}/lineage"
 
-          echo "=== Current directory ==="
-          pwd
+          echo "=== Checking build system ==="
 
-          echo "=== Checking build tree ==="
           test -f build/envsetup.sh
           test -f build/make/core/envsetup.mk
 
-          echo "=== Sourcing envsetup ==="
+          echo "=== Source envsetup ==="
+
           source build/envsetup.sh
 
-          echo "=== Lunch ==="
-          lunch lineage_a31-userdebug
+          echo "=== Lunch A31 ==="
 
-          echo "=== Target information ==="
+          lunch a31-userdebug
+
+          echo "=== Product information ==="
+
           get_build_var TARGET_PRODUCT
           get_build_var TARGET_DEVICE
           get_build_var TARGET_BUILD_VARIANT
 
-          echo "=== Build environment prepared ==="
+          echo "=== Build environment ready ==="
 
-          echo "=== Disk ==="
           df -h
 
       # ============================================================
-      # BUILD ROM
+      # BUILD
       # ============================================================
       - name: Build LineageOS 19.1
         shell: bash
@@ -287,15 +283,16 @@ jobs:
 
           source build/envsetup.sh
 
-          lunch lineage_a31-userdebug
+          lunch a31-userdebug
 
-          echo "=== Starting build ==="
           echo "=== Disk before build ==="
           df -h
 
+          echo "=== Starting mka bacon ==="
+
           mka bacon
 
-          echo "=== Build completed ==="
+          echo "=== BUILD FINISHED ==="
 
           echo "=== Disk after build ==="
           df -h
@@ -304,7 +301,7 @@ jobs:
           ccache -s
 
       # ============================================================
-      # FIND BUILD OUTPUT
+      # INSPECT OUTPUT
       # ============================================================
       - name: Inspect build output
         if: success()
@@ -313,24 +310,32 @@ jobs:
 
           cd "${GITHUB_WORKSPACE}/lineage"
 
-          echo "=== OUT directory ==="
+          echo "=== A31 output ==="
+
           du -sh out || true
 
-          echo "=== Target product output ==="
           ls -lah out/target/product/a31 || true
 
-          echo "=== ZIP files ==="
+          echo "=== ROM ZIP ==="
+
           find out/target/product/a31 \
             -maxdepth 1 \
             -type f \
-            \( -name "*.zip" -o -name "*.img" \) \
+            -name "*.zip" \
             -exec ls -lh {} \; || true
 
-          echo "=== Disk ==="
+          echo "=== Images ==="
+
+          find out/target/product/a31 \
+            -maxdepth 1 \
+            -type f \
+            -name "*.img" \
+            -exec ls -lh {} \; || true
+
           df -h
 
       # ============================================================
-      # VALIDATE ROM ZIP
+      # VALIDATE ROM
       # ============================================================
       - name: Validate ROM package
         if: success()
@@ -342,20 +347,21 @@ jobs:
           ROM_ZIP=$(find out/target/product/a31 \
             -maxdepth 1 \
             -type f \
-            -name "lineage-*.zip" \
+            -name "*.zip" \
             | head -n 1)
 
           test -n "${ROM_ZIP}"
 
-          echo "ROM package:"
+          echo "ROM:"
           echo "${ROM_ZIP}"
 
           ls -lh "${ROM_ZIP}"
 
-          echo "=== ZIP test ==="
+          echo "=== Testing ZIP ==="
+
           unzip -t "${ROM_ZIP}" >/dev/null
 
-          echo "=== ZIP is valid ==="
+          echo "=== ZIP OK ==="
 
       # ============================================================
       # UPLOAD ROM
@@ -372,7 +378,7 @@ jobs:
           retention-days: 7
 
       # ============================================================
-      # UPLOAD BUILD LOGS ON FAILURE
+      # UPLOAD LOGS
       # ============================================================
       - name: Upload build logs
         if: failure()
@@ -395,6 +401,7 @@ jobs:
         run: |
           echo "========================================"
           echo " Galaxy A31 - LineageOS 19.1"
+          echo " Product: a31"
           echo "========================================"
 
           if [ -d "${GITHUB_WORKSPACE}/lineage" ]; then
@@ -409,10 +416,11 @@ jobs:
             ccache -s || true
 
             echo ""
-            echo "=== Build output ==="
+            echo "=== Output ==="
+
             if [ -d out/target/product/a31 ]; then
               ls -lah out/target/product/a31 || true
             else
-              echo "No A31 build output directory."
+              echo "No A31 output directory."
             fi
           fi
