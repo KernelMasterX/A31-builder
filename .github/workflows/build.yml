@@ -8,31 +8,52 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 360
 
     env:
       ROM_DIR: ${{ github.workspace }}/rom
-      CCACHE_DIR: ${{ github.workspace }}/ccache
       RELEASE_DIR: ${{ github.workspace }}/release
+      DEBIAN_FRONTEND: noninteractive
 
     steps:
       - name: Free runner disk space
+        timeout-minutes: 10
         run: |
+          set -eux
+          echo "=== Disk before cleanup ==="
           df -h
+
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/powershell
           sudo apt-get clean
           sudo docker system prune -af || true
+
+          echo "=== Disk after cleanup ==="
           df -h
+          free -h
 
       - name: Install build dependencies
+        timeout-minutes: 20
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            bc bison build-essential ccache curl flex \
+          set -eux
+
+          sudo apt-get \
+            -o Acquire::Retries=3 \
+            -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 \
+            -o DPkg::Lock::Timeout=120 \
+            update
+
+          sudo apt-get \
+            -o Acquire::Retries=3 \
+            -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 \
+            -o DPkg::Lock::Timeout=120 \
+            install -y \
+            bc bison build-essential curl flex \
             g++-multilib gcc-multilib git git-lfs \
             gnupg gperf imagemagick lib32readline-dev \
             lib32z1-dev libelf-dev liblz4-tool \
@@ -40,36 +61,61 @@ jobs:
             libxml2-utils lzop openjdk-11-jdk \
             pngcrush rsync schedtool squashfs-tools \
             unzip zip zlib1g-dev python-is-python3 python3
+
+          echo "=== Java version ==="
+          java -version
+
+          echo "=== Disk after dependencies ==="
           df -h
 
       - name: Install latest repo tool
+        timeout-minutes: 5
         run: |
+          set -eux
           mkdir -p "$HOME/bin"
-          curl -fsSL \
+
+          curl --fail --location --silent --show-error \
+            --retry 3 \
+            --connect-timeout 30 \
+            --max-time 180 \
             https://storage.googleapis.com/git-repo-downloads/repo \
             -o "$HOME/bin/repo"
+
           chmod a+x "$HOME/bin/repo"
           echo "$HOME/bin" >> "$GITHUB_PATH"
-          "$HOME/bin/repo" version
+          export PATH="$HOME/bin:$PATH"
+
+          repo version
+          repo sync --help | grep -E -- '--depth|depth' || true
+
           df -h
 
       - name: Initialize LineageOS
+        timeout-minutes: 10
         run: |
+          set -eux
           mkdir -p "$ROM_DIR"
           cd "$ROM_DIR"
+
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+
           repo init \
             -u https://github.com/LineageOS/android.git \
             -b lineage-19.1 \
-            --git-lfs \
-            --depth=1
+            --git-lfs
+
+          echo "=== Disk after initialization ==="
           df -h
 
-      - name: Sync LineageOS source
+      - name: Sync LineageOS source (shallow)
+        timeout-minutes: 180
         run: |
+          set -eux
           cd "$ROM_DIR"
+
           repo sync \
+            --depth=1 \
             -c \
             --force-sync \
             --no-clone-bundle \
@@ -77,64 +123,96 @@ jobs:
             --optimized-fetch \
             --prune \
             -j2
-          echo "=== Disk after sync ==="
+
+          echo "=== Disk after shallow sync ==="
           df -h
           free -h
 
       - name: Clone Galaxy A31 device tree
+        timeout-minutes: 5
         run: |
+          set -eux
           cd "$ROM_DIR"
+
           git clone \
             -b lineage-19.1 \
             --depth=1 \
             https://github.com/KernelMasterX/android_device_samsung_a31.git \
             device/samsung/a31
+
           df -h
 
       - name: Clone Galaxy A31 kernel
+        timeout-minutes: 10
         run: |
+          set -eux
           cd "$ROM_DIR"
+
           git clone \
             -b lineage-19.1 \
             --depth=1 \
             https://github.com/KernelMasterX/android_kernel_samsung_a31.git \
             kernel/samsung/a31
+
           df -h
 
       - name: Clone Galaxy A31 vendor
+        timeout-minutes: 5
         run: |
+          set -eux
           cd "$ROM_DIR"
+
           git clone \
             -b lineage-19.1 \
             --depth=1 \
             https://github.com/KernelMasterX/android_vendor_samsung_a31.git \
             vendor/samsung/a31
-          df -h
 
-      - name: Configure ccache
-        run: |
-          mkdir -p "$CCACHE_DIR" "$RELEASE_DIR"
-          echo "USE_CCACHE=1" >> "$GITHUB_ENV"
-          echo "CCACHE_DIR=$CCACHE_DIR" >> "$GITHUB_ENV"
-          ccache -M 20G
           df -h
 
       - name: Build LineageOS
+        timeout-minutes: 300
         run: |
+          set -eux
           cd "$ROM_DIR"
+
           source build/envsetup.sh
           lunch lineage_a31-userdebug
-          mka bacon -j2
+
+          echo "=== Disk before build ==="
           df -h
+          free -h
+
+          mka bacon -j2
+
+          echo "=== Disk after build ==="
+          df -h
+          free -h
 
       - name: Collect ROM ZIP
         if: success()
+        timeout-minutes: 5
         run: |
+          set -eux
           mkdir -p "$RELEASE_DIR"
+
           find "$ROM_DIR/out/target/product/a31" \
-            -maxdepth 1 -type f -name '*.zip' \
+            -maxdepth 1 \
+            -type f \
+            -name '*.zip' \
             -exec cp -v {} "$RELEASE_DIR/" \;
-          test -n "$(find "$RELEASE_DIR" -maxdepth 1 -name '*.zip' -print -quit)"
+
+          if ! find "$RELEASE_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -name '*.zip' \
+            -print -quit | grep -q .; then
+            echo "ERROR: No ROM ZIP found."
+            exit 1
+          fi
+
+          echo "=== ROM ZIP files ==="
+          ls -lh "$RELEASE_DIR"
           df -h
 
       - name: Upload ROM artifact
@@ -167,6 +245,14 @@ jobs:
       - name: Disk status on failure
         if: failure()
         run: |
+          echo "=== Disk status ==="
           df -h
+
+          echo "=== Memory status ==="
           free -h
+
+          echo "=== Source and build directory sizes ==="
           du -sh "$ROM_DIR/.repo" "$ROM_DIR/out" 2>/dev/null || true
+
+          echo "=== Package manager audit ==="
+          sudo dpkg --audit || true
