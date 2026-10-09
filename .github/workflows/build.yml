@@ -21,6 +21,7 @@ jobs:
         timeout-minutes: 10
         run: |
           set -eux
+
           echo "=== Disk before cleanup ==="
           df -h
 
@@ -72,6 +73,7 @@ jobs:
         timeout-minutes: 5
         run: |
           set -eux
+
           mkdir -p "$HOME/bin"
 
           curl --fail --location --silent --show-error \
@@ -86,14 +88,13 @@ jobs:
           export PATH="$HOME/bin:$PATH"
 
           repo version
-          repo sync --help | grep -E -- '--depth|depth' || true
-
           df -h
 
-      - name: Initialize LineageOS
+      - name: Initialize LineageOS (shallow)
         timeout-minutes: 10
         run: |
           set -eux
+
           mkdir -p "$ROM_DIR"
           cd "$ROM_DIR"
 
@@ -103,19 +104,20 @@ jobs:
           repo init \
             -u https://github.com/LineageOS/android.git \
             -b lineage-19.1 \
-            --git-lfs
+            --git-lfs \
+            --depth=1
 
-          echo "=== Disk after initialization ==="
+          echo "=== Disk after repo init ==="
           df -h
 
-      - name: Sync LineageOS source (shallow)
+      - name: Sync LineageOS source
         timeout-minutes: 180
         run: |
           set -eux
+
           cd "$ROM_DIR"
 
           repo sync \
-            --depth=1 \
             -c \
             --force-sync \
             --no-clone-bundle \
@@ -124,7 +126,7 @@ jobs:
             --prune \
             -j2
 
-          echo "=== Disk after shallow sync ==="
+          echo "=== Disk after sync ==="
           df -h
           free -h
 
@@ -132,6 +134,7 @@ jobs:
         timeout-minutes: 5
         run: |
           set -eux
+
           cd "$ROM_DIR"
 
           git clone \
@@ -146,6 +149,7 @@ jobs:
         timeout-minutes: 10
         run: |
           set -eux
+
           cd "$ROM_DIR"
 
           git clone \
@@ -160,6 +164,7 @@ jobs:
         timeout-minutes: 5
         run: |
           set -eux
+
           cd "$ROM_DIR"
 
           git clone \
@@ -174,6 +179,7 @@ jobs:
         timeout-minutes: 300
         run: |
           set -eux
+
           cd "$ROM_DIR"
 
           source build/envsetup.sh
@@ -194,6 +200,7 @@ jobs:
         timeout-minutes: 5
         run: |
           set -eux
+
           mkdir -p "$RELEASE_DIR"
 
           find "$ROM_DIR/out/target/product/a31" \
