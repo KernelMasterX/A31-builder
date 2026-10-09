@@ -42,7 +42,7 @@ jobs:
             unzip zip zlib1g-dev python-is-python3 python3
           df -h
 
-      - name: Install repo tool
+      - name: Install latest repo tool
         run: |
           mkdir -p "$HOME/bin"
           curl -fsSL \
@@ -62,10 +62,11 @@ jobs:
           repo init \
             -u https://github.com/LineageOS/android.git \
             -b lineage-19.1 \
-            --git-lfs
+            --git-lfs \
+            --depth=1
           df -h
 
-      - name: Sync LineageOS source (shallow)
+      - name: Sync LineageOS source
         run: |
           cd "$ROM_DIR"
           repo sync \
@@ -75,11 +76,9 @@ jobs:
             --no-tags \
             --optimized-fetch \
             --prune \
-            --depth=1 \
             -j2
-          echo "=== Disk space after repo sync ==="
+          echo "=== Disk after sync ==="
           df -h
-          echo "=== Memory after repo sync ==="
           free -h
 
       - name: Clone Galaxy A31 device tree
